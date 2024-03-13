@@ -1,0 +1,14 @@
+# disable TLS
+:80 {
+	reverse_proxy :8080
+}
+
+:8080 {
+	# health endpoint
+	handle /health {
+		respond "OK"
+	}
+
+	# forward to the wasm server
+	reverse_proxy :8090
+}
