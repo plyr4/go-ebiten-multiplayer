@@ -3,14 +3,14 @@ FROM caddy/caddy:alpine as caddy
 ADD Caddyfile /etc/caddy/Caddyfile
 
 # not a serious project, leaving this on latest
-FROM golang:alpine
+FROM golang
 
 # copy what we need from caddy layer
 COPY --from=caddy /etc/caddy/Caddyfile /etc/caddy/Caddyfile
 COPY --from=caddy /usr/bin/caddy /usr/bin/caddy
 
 # copy go files to be served via wasm
-COPY go.mod go.sum main.go /go/src/
+COPY . /go/src/
 
 # copy wasm wrapper that serves Go
 COPY servewasm.sh /usr/bin/servewasm
