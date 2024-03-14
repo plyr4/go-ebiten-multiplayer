@@ -1,16 +1,16 @@
 BUILD_DATE_TAG=$(shell date "+d%y.%m.%d-t%H.%M")
 
-IMAGE_PUBLISH_PATH=davidvader/go-ebiten-multiplayer
+IMAGE_PUBLISH_PATH=docker.io/davidvader/go-ebiten-multiplayer
 
-debug:
-	@echo "running program directly"
-	go run main.go
+client:
+	@echo "running client directly"
+	go run client/main.go
 
-debug-wasm:
-	@echo "serving wasm directly"
-	./serverwasm.sh
+server:
+	@echo "running server entrypoint directly"
+	./entrypoint.sh
 
-kill-wasm:
+kill-server:
 	@echo "Killing any frozen wasm processes related to specified ports"
 	for port in 8080 8090 8091; do \
 		for process in nc wasmserve curl main; do \
@@ -20,9 +20,9 @@ kill-wasm:
 
 up: build run
 
-build:
-	@echo "building image"
-	docker-buildx build -t game:local -f Dockerfile .
+restart: down up
+
+publish: build-static tag push
 
 run:
 	@echo "running container"
@@ -33,9 +33,18 @@ down:
 	-docker kill game
 	-docker rm game
 
-restart: down up
+build:
+	@echo "building image"
+	docker-buildx build -t game:local -f Dockerfile.internal .
 
-publish:
-	@echo "publishing image to ${IMAGE_PUBLISH_PATH}"
-	docker-buildx build --platform=linux/amd64 -t ${IMAGE_PUBLISH_PATH}:${BUILD_DATE_TAG} .
+build-static:
+	@echo "building static image for linux/amd64"
+	docker-buildx build --platform=linux/amd64 -f Dockerfile .
+
+tag:
+	@echo "pushing image to ${IMAGE_PUBLISH_PATH}:${BUILD_DATE_TAG}"
+	docker tag game:local ${IMAGE_PUBLISH_PATH}:${BUILD_DATE_TAG}
+
+push:
+	@echo "pushing image to ${IMAGE_PUBLISH_PATH}:${BUILD_DATE_TAG}"
 	docker push ${IMAGE_PUBLISH_PATH}:${BUILD_DATE_TAG}
