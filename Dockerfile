@@ -1,25 +1,21 @@
-
+# layers
 FROM caddy/caddy:alpine as caddy
 
-# not a serious project, leaving this on latest
-FROM golang
+# base
+FROM golang:1.22.1
 
-# copy what we need for caddy
-ADD Caddyfile /etc/caddy/Caddyfile
+# caddy
 COPY --from=caddy /etc/caddy/Caddyfile /etc/caddy/Caddyfile
 COPY --from=caddy /usr/bin/caddy /usr/bin/caddy
+COPY Caddyfile /etc/caddy/Caddyfile
 
-# copy go files to be served via wasm
+# go
 COPY . /go/src/
-
-# copy wasm wrapper that serves Go
-COPY servewasm.sh /usr/bin/servewasm
-
-# cd to the directory where the go files are
 WORKDIR /go/src/
 
 # expose ports
 EXPOSE 8080
-EXPOSE 8091
 
-CMD [ "servewasm" ]
+# run
+ADD entrypoint.sh /bin/entrypoint
+CMD ["/bin/entrypoint"]

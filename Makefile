@@ -18,9 +18,13 @@ kill-wasm:
 		done; \
 	done
 
-up:
+up: build run
+
+build:
 	@echo "building image"
-	docker build -t game:local .
+	docker-buildx build -t game:local -f Dockerfile.internal .
+
+run:
 	@echo "running container"
 	docker run -d -p '8080:8080' --name=game game:local
 
