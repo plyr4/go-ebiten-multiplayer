@@ -22,7 +22,7 @@ up: build run
 
 build:
 	@echo "building image"
-	docker-buildx build -t game:local -f Dockerfile.internal .
+	docker-buildx build -t game:local -f Dockerfile .
 
 run:
 	@echo "running container"
