@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"os"
@@ -13,13 +12,15 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/plyr4/go-ebiten-multiplayer/shared/constants"
+	"github.com/plyr4/go-ebiten-multiplayer/ws"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/time/rate"
 	"nhooyr.io/websocket"
+	"nhooyr.io/websocket/wsjson"
 )
 
 func main() {
-	logrus.SetLevel(logrus.TraceLevel)
+	logrus.SetLevel(logrus.DebugLevel)
 
 	err := run()
 	if err != nil {
@@ -98,6 +99,7 @@ func (s echoServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	defer c.CloseNow()
 
+	// check for client protocol
 	if c.Subprotocol() != constants.CLIENT_SUBPROTOCOL {
 		c.Close(websocket.StatusPolicyViolation,
 			fmt.Sprintf("expected subprotocol %q but got %q", constants.CLIENT_SUBPROTOCOL, c.Subprotocol()),
@@ -107,11 +109,14 @@ func (s echoServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	l := rate.NewLimiter(rate.Every(time.Millisecond*100), 10)
 	for {
-		logrus.Trace("handling client message...")
-
 		err = echo(r.Context(), c, l)
 		if websocket.CloseStatus(err) == websocket.StatusNormalClosure {
-			logrus.Trace("recv close message from client")
+			logrus.Tracef("received close message from client: %v", err)
+			return
+		}
+
+		if websocket.CloseStatus(err) == websocket.StatusGoingAway {
+			logrus.Tracef("received going away message from client: %v", err)
 			return
 		}
 
@@ -129,26 +134,26 @@ func echo(ctx context.Context, c *websocket.Conn, l *rate.Limiter) error {
 	ctx, cancel := context.WithTimeout(ctx, time.Second*10)
 	defer cancel()
 
+	logrus.Trace("waiting for messages...")
 	err := l.Wait(ctx)
 	if err != nil {
 		return err
 	}
 
-	typ, r, err := c.Reader(ctx)
+	// todo: handle different message types
+
+	ping := ws.Ping{}
+	err = wsjson.Read(ctx, c, &ping)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "failed to read")
 	}
 
-	w, err := c.Writer(ctx, typ)
+	logrus.Tracef("sending ping: %v", ping)
+
+	err = wsjson.Write(ctx, c, &ping)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "failed to write")
 	}
 
-	_, err = io.Copy(w, r)
-	if err != nil {
-		return errors.Wrap(err, "failed to io.Copy")
-	}
-
-	err = w.Close()
 	return err
 }
