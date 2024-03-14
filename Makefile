@@ -1,6 +1,6 @@
 BUILD_DATE_TAG=$(shell date "+d%y.%m.%d-t%H.%M")
 
-IMAGE_PUBLISH_PATH='davidvader/go-ebiten-multiplayer
+IMAGE_PUBLISH_PATH=davidvader/go-ebiten-multiplayer
 
 debug:
 	@echo "running program directly"
@@ -11,10 +11,12 @@ debug-wasm:
 	./serverwasm.sh
 
 kill-wasm:
-	@echo "killing any frozen wasm processes related to port 8080"
-	lsof -P | grep 8080 | grep nc | awk '{print $$2}' | xargs kill -9
-	lsof -P | grep 8080 | grep wasmserve | awk '{print $$2}' | xargs kill -9
-	lsof -P | grep 8080 | grep curl | awk '{print $$2}' | xargs kill -9
+	@echo "Killing any frozen wasm processes related to specified ports"
+	for port in 8080 8090 8091; do \
+		for process in nc wasmserve curl main; do \
+			lsof -P | grep $$port | grep $$process | awk '{print $$2}' | xargs -r kill -9; \
+		done; \
+	done
 
 up:
 	@echo "building image"

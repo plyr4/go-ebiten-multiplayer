@@ -9,6 +9,15 @@
 		respond "OK"
 	}
 
+	# client websocket
+	handle "/client" {
+		@websockets {
+			header Connection *Upgrade*
+			header Upgrade websocket
+		}
+		reverse_proxy localhost:8091
+	}
+
 	# forward to the wasm server
 	reverse_proxy :8090
 }
