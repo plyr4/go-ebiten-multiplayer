@@ -19,6 +19,9 @@ import (
 	"nhooyr.io/websocket/wsjson"
 )
 
+// server status
+var connectedPlayers = 0
+
 func main() {
 	logrus.SetLevel(logrus.DebugLevel)
 
@@ -87,6 +90,7 @@ type echoServer struct {
 }
 
 func (s echoServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// accept the client connection
 	c, err := websocket.Accept(w, r, &websocket.AcceptOptions{
 		Subprotocols: []string{
 			constants.CLIENT_SUBPROTOCOL,
@@ -107,9 +111,15 @@ func (s echoServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	connectedPlayers++
+	defer func() { connectedPlayers-- }()
+
 	l := rate.NewLimiter(rate.Every(time.Millisecond*100), 10)
 	for {
+
+		// receive messages from the client
 		err = echo(r.Context(), c, l)
+
 		if websocket.CloseStatus(err) == websocket.StatusNormalClosure {
 			logrus.Tracef("received close message from client: %v", err)
 			return
@@ -124,6 +134,7 @@ func (s echoServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			s.logf("failed to handle client message from %v: %v", r.RemoteAddr, err)
 			return
 		}
+
 	}
 }
 
@@ -134,23 +145,43 @@ func echo(ctx context.Context, c *websocket.Conn, l *rate.Limiter) error {
 	ctx, cancel := context.WithTimeout(ctx, time.Second*10)
 	defer cancel()
 
-	logrus.Trace("waiting for messages...")
+	logrus.Tracef("waiting %v", l.Burst())
+
 	err := l.Wait(ctx)
 	if err != nil {
 		return err
 	}
 
-	// todo: handle different message types
+	logrus.Tracef("waiting to read msg")
 
-	ping := ws.Ping{}
-	err = wsjson.Read(ctx, c, &ping)
+	msg := new(ws.Msg)
+	err = wsjson.Read(ctx, c, msg)
 	if err != nil {
 		return errors.Wrap(err, "failed to read")
 	}
 
-	logrus.Tracef("sending ping: %v", ping)
+	logrus.Tracef("got msg: %v", msg)
 
-	err = wsjson.Write(ctx, c, &ping)
+	if msg.Ping != nil {
+		logrus.Tracef("received ping: %v", msg)
+	} else if msg.ClientUpdate != nil {
+		logrus.Tracef("received client update: %v", msg)
+	} else if msg.ServerUpdate != nil {
+		logrus.Tracef("received server update: %v", msg)
+	} else {
+		logrus.Tracef("received unknown message type: %v", msg)
+	}
+
+	msg = new(ws.Msg)
+	su := ws.ServerUpdate{
+		Status:           "ok",
+		ConnectedPlayers: connectedPlayers,
+	}
+	msg.ServerUpdate = &su
+
+	logrus.Tracef("sending server update: %v", su)
+
+	err = wsjson.Write(ctx, c, msg)
 	if err != nil {
 		return errors.Wrap(err, "failed to write")
 	}

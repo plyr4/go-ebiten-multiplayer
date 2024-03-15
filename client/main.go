@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"os"
 	"os/signal"
 	"syscall"
@@ -10,7 +11,9 @@ import (
 )
 
 func main() {
-	logrus.SetLevel(logrus.DebugLevel)
+	logrus.SetLevel(logrus.TraceLevel)
+
+	ctx := context.Background()
 
 	// send os signals to sigs channel
 	sigs := make(chan os.Signal, 1)
@@ -20,8 +23,12 @@ func main() {
 	errc := make(chan error, 1)
 	go func() {
 		g := game.New()
-		errc <- g.Run()
-		g.Shutdown("server shutdown")
+		errc <- g.Run(ctx)
+
+		// shutdown if necessary
+		if g.Running {
+			g.Shutdown("server shutdown")
+		}
 	}()
 
 	// goroutine handlers

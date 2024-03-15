@@ -104,16 +104,6 @@ func (c *Client) URL() string {
 func (c *Client) Connect() error {
 	c.logger.Infof("connecting to: %s", c.URL())
 
-	if c.connection != nil {
-		err := c.connection.Ping(context.Background())
-		if err != nil {
-			c.logger.Debugf("ping failed: %v\nreconnecting", err)
-		} else {
-			c.logger.Trace("ping succeeded, moving on")
-			return nil
-		}
-	}
-
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 
@@ -140,6 +130,16 @@ func (c *Client) Connect() error {
 	return nil
 }
 
+func (c *Client) Reconnect() error {
+	c.logger.Trace("reconnecting ws client")
+
+	if c.connection != nil {
+		c.connection.CloseNow()
+	}
+
+	return c.Connect()
+}
+
 func (c *Client) Close(msg string) error {
 	c.logger.Tracef("closing ws client: %s", msg)
 
@@ -150,7 +150,7 @@ func (c *Client) Close(msg string) error {
 	return errors.New("cannot close a nil connection")
 }
 
-func (c *Client) Send(msg Message) error {
+func (c *Client) Send(msg interface{}) error {
 	c.logger.Tracef("sending msg: %v", msg)
 
 	err := wsjson.Write(c.ctx, c.connection, msg)
@@ -167,8 +167,8 @@ func (c *Client) Send(msg Message) error {
 	return nil
 }
 
-func (c *Client) Receive(msg Ping) (Message, error) {
-	c.logger.Tracef("receiving msg: %v", msg)
+func (c *Client) Receive(msg interface{}) (interface{}, error) {
+	c.logger.Trace("receiving msg")
 
 	err := wsjson.Read(c.ctx, c.connection, &msg)
 	if err != nil {
