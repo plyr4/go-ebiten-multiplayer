@@ -18,4 +18,5 @@ EXPOSE 8080
 
 # run
 ADD entrypoint.sh /bin/entrypoint
+
 CMD ["/bin/entrypoint"]

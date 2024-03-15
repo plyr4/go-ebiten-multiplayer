@@ -1,6 +1,6 @@
 BUILD_DATE_TAG=$(shell date "+d%y.%m.%d-t%H.%M")
 
-IMAGE_PUBLISH_PATH=docker.io/davidvader/go-ebiten-multiplayer
+IMAGE_PUBLISH_PATH?=docker.io/davidvader/go-ebiten-multiplayer
 
 client:
 	@echo "running client directly"
@@ -22,7 +22,8 @@ up: build run
 
 restart: down up
 
-publish: build-static tag push
+publish:
+	build-static tag push
 
 run:
 	@echo "running container"
@@ -39,7 +40,7 @@ build:
 
 build-static:
 	@echo "building static image for linux/amd64"
-	docker-buildx build --platform=linux/amd64 -f Dockerfile .
+	docker-buildx build -t game:local -f Dockerfile --platform=linux/amd64 .
 
 tag:
 	@echo "pushing image to ${IMAGE_PUBLISH_PATH}:${BUILD_DATE_TAG}"
