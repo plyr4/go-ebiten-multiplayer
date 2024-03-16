@@ -19,22 +19,21 @@ For local dev:
 
 ### Run
 
-- Build and run via Docker.
+- Build and run via Docker and web assembly.
     ```bash
     $ make up
     ```
+- Visit http://localhost:8080.
 
 _Or_
 
-- Run via Go.
+- Run directly via Go.
     ```bash
     # run server in the background
     make srv &
     # run the client
     make clt
     ```
-
-- Visit http://localhost:8080 
 
 - Disable multiplayer by setting `CLIENT_MULTIPLAYER` to `false`.
     ```bash
