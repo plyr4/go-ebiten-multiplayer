@@ -14,7 +14,7 @@ import (
 	"nhooyr.io/websocket/wsjson"
 )
 
-var DEFAULT_Client = Config{
+var DEFAULT_WS_CONFIG = Config{
 	Protocol:   "ws",
 	Host:       "localhost:8080",
 	ClientPath: "client",
@@ -26,22 +26,24 @@ type Config struct {
 	ClientPath string
 }
 
-// fills a websocket Client with defaults when necessary
-func (cfg *Config) Defaultify() {
+// ValidateAndNullify fills a websocket Client with defaults when necessary
+func (cfg *Config) ValidateAndNullify() error {
 	if len(cfg.Protocol) == 0 {
-		logrus.Warnf("using default protocol: %s", DEFAULT_Client.Protocol)
-		cfg.Protocol = DEFAULT_Client.Protocol
+		logrus.Warnf("using default protocol: %s", DEFAULT_WS_CONFIG.Protocol)
+		cfg.Protocol = DEFAULT_WS_CONFIG.Protocol
 	}
 
 	if len(cfg.Host) == 0 {
-		logrus.Warnf("using default host: %s", DEFAULT_Client.Host)
-		cfg.Host = DEFAULT_Client.Host
+		logrus.Warnf("using default host: %s", DEFAULT_WS_CONFIG.Host)
+		cfg.Host = DEFAULT_WS_CONFIG.Host
 	}
 
 	if len(cfg.ClientPath) == 0 {
-		logrus.Warnf("using default client path: %s", DEFAULT_Client.ClientPath)
-		cfg.ClientPath = DEFAULT_Client.ClientPath
+		logrus.Warnf("using default client path: %s", DEFAULT_WS_CONFIG.ClientPath)
+		cfg.ClientPath = DEFAULT_WS_CONFIG.ClientPath
 	}
+
+	return nil
 }
 
 // Client houses a websocket connection
@@ -61,11 +63,11 @@ func New() *Client {
 
 	// config
 	cfg := &Config{
-		Protocol:   os.Getenv("WS_CLIENT_PROTOCOL"),
-		Host:       os.Getenv("WS_CLIENT_HOST"),
-		ClientPath: os.Getenv("WS_CLIENT_PATH"),
+		Protocol:   os.Getenv("CLIENT_WS_PROTOCOL"),
+		Host:       os.Getenv("CLIENT_WS_HOST"),
+		ClientPath: os.Getenv("CLIENT_WS_PATH"),
 	}
-	cfg.Defaultify()
+	cfg.ValidateAndNullify()
 	c.config = cfg
 
 	// logging

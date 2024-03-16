@@ -1,16 +1,12 @@
-package main
+package server
 
 import (
 	"context"
 	"fmt"
-	"net"
 	"net/http"
-	"os"
-	"os/signal"
 	"time"
 
 	"github.com/pkg/errors"
-
 	"github.com/plyr4/go-ebiten-multiplayer/shared/constants"
 	"github.com/plyr4/go-ebiten-multiplayer/ws"
 	"github.com/sirupsen/logrus"
@@ -22,74 +18,10 @@ import (
 // server status
 var connectedPlayers = 0
 
-func main() {
-	logrus.SetLevel(logrus.DebugLevel)
+// todo: move this implementation into a server package
+type ClientServer struct{}
 
-	err := run()
-	if err != nil {
-		logrus.Fatal(err)
-	}
-}
-
-func run() error {
-	host := os.Getenv("WS_SERVER_HOST")
-	if len(host) == 0 {
-		return errors.New("no host provided in environment variable WS_SERVER_HOST")
-	}
-
-	logrus.Tracef("running tcp server using host: %v", host)
-
-	l, err := net.Listen("tcp", host)
-	if err != nil {
-		return err
-	}
-
-	logrus.Tracef("listening on http://%v", l.Addr())
-
-	// create a single handle server
-	s := &http.Server{
-		Handler: echoServer{
-			logf: logrus.Debugf,
-		},
-		ReadTimeout:  time.Second * 10,
-		WriteTimeout: time.Second * 10,
-	}
-
-	// serve the http handler over tcp
-
-	// send errors to errc channel
-	errc := make(chan error, 1)
-	go func() {
-		errc <- s.Serve(l)
-	}()
-
-	// send os signals to sigs channel
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, os.Interrupt)
-
-	// goroutine handlers
-	select {
-	case err := <-errc:
-		logrus.Errorf("failure serving: %v", err)
-	case sig := <-sigs:
-		logrus.Infof("terminating server, SIG: %v", sig)
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
-	defer cancel()
-
-	return s.Shutdown(ctx)
-}
-
-// echoServer is the WebSocket echo server implementation.
-// It ensures the client speaks the echo subprotocol and
-// only allows one message every 100ms with a 10 message burst.
-type echoServer struct {
-	// logf controls where logs are sent.
-	logf func(f string, v ...interface{})
-}
-
-func (s echoServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (s ClientServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// accept the client connection
 	c, err := websocket.Accept(w, r, &websocket.AcceptOptions{
 		Subprotocols: []string{
@@ -97,7 +29,8 @@ func (s echoServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		},
 	})
 	if err != nil {
-		s.logf("%v", err)
+		logrus.Errorf("%v", err)
+
 		return
 	}
 
@@ -108,6 +41,7 @@ func (s echoServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		c.Close(websocket.StatusPolicyViolation,
 			fmt.Sprintf("expected subprotocol %q but got %q", constants.CLIENT_SUBPROTOCOL, c.Subprotocol()),
 		)
+
 		return
 	}
 
@@ -116,45 +50,47 @@ func (s echoServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	l := rate.NewLimiter(rate.Every(time.Millisecond*100), 10)
 	for {
-
 		// receive messages from the client
-		err = echo(r.Context(), c, l)
+		err = handleClientMessage(r.Context(), c, l)
 
+		// handle closures
 		if websocket.CloseStatus(err) == websocket.StatusNormalClosure {
 			logrus.Tracef("received close message from client: %v", err)
+
 			return
 		}
 
 		if websocket.CloseStatus(err) == websocket.StatusGoingAway {
 			logrus.Tracef("received going away message from client: %v", err)
+
 			return
 		}
 
 		if err != nil {
-			s.logf("failed to handle client message from %v: %v", r.RemoteAddr, err)
+			logrus.Errorf("failed to handle client message from %v: %v", r.RemoteAddr, err)
+
 			return
 		}
-
 	}
 }
 
-// echo reads from the WebSocket connection and then writes
-// the received message back to it.
-// The entire function has 10s to complete.
-func echo(ctx context.Context, c *websocket.Conn, l *rate.Limiter) error {
+// handleClientMessage reads from the WebSocket connection then handles the incoming message
+func handleClientMessage(ctx context.Context, c *websocket.Conn, l *rate.Limiter) error {
+	// 10s to complete
 	ctx, cancel := context.WithTimeout(ctx, time.Second*10)
 	defer cancel()
 
-	logrus.Tracef("waiting %v", l.Burst())
+	logrus.Tracef("waiting %v before reading", l.Burst())
 
 	err := l.Wait(ctx)
 	if err != nil {
 		return err
 	}
 
-	logrus.Tracef("waiting to read msg")
+	logrus.Trace("reading msg")
 
 	msg := new(ws.Msg)
+
 	err = wsjson.Read(ctx, c, msg)
 	if err != nil {
 		return errors.Wrap(err, "failed to read")
@@ -162,6 +98,8 @@ func echo(ctx context.Context, c *websocket.Conn, l *rate.Limiter) error {
 
 	logrus.Tracef("got msg: %v", msg)
 
+	// handle the message based on type
+	// todo: implement this
 	if msg.Ping != nil {
 		logrus.Tracef("received ping: %v", msg)
 	} else if msg.ClientUpdate != nil {
@@ -172,18 +110,22 @@ func echo(ctx context.Context, c *websocket.Conn, l *rate.Limiter) error {
 		logrus.Tracef("received unknown message type: %v", msg)
 	}
 
+	// respond to the client with a server update
+	// todo: move this into the handler above and respond when asked
 	msg = new(ws.Msg)
+
 	su := ws.ServerUpdate{
 		Status:           "ok",
 		ConnectedPlayers: connectedPlayers,
 	}
+
 	msg.ServerUpdate = &su
 
 	logrus.Tracef("sending server update: %v", su)
 
 	err = wsjson.Write(ctx, c, msg)
 	if err != nil {
-		return errors.Wrap(err, "failed to write")
+		return errors.Wrap(err, "failed to write server update")
 	}
 
 	return err

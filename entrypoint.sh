@@ -8,12 +8,14 @@ export WASM_HTTP_PORT=${WASM_HTTP_PORT:-8090}
 export WS_SERVER_HOST="${WS_SERVER_HOST:-0.0.0.0:8091}"
 
 # client (defaults set in code)
-export WS_CLIENT_PROTOCOL=${WS_CLIENT_PROTOCOL:-ws}
-export WS_CLIENT_HOST="${WS_CLIENT_HOST}"
-export WS_CLIENT_PATH="${WS_CLIENT_PATH}"
+export CLIENT_WS_PROTOCOL=${CLIENT_WS_PROTOCOL:-ws}
+export CLIENT_WS_PROTOCOL=${CLIENT_WS_PROTOCOL:-ws}
+export CLIENT_WS_HOST="${CLIENT_WS_HOST}"
+export CLIENT_WS_PATH="${CLIENT_WS_PATH}"
+export CLIENT_MULTIPLAYER="${CLIENT_MULTIPLAYER:-true}"
 
-go run server/main.go &
+go run cmd/server/main.go &
 
-go run github.com/hajimehoshi/wasmserve@latest -allow-origin='*' -http=:$WASM_HTTP_PORT ./client/main.go &
+go run github.com/hajimehoshi/wasmserve@latest -allow-origin='*' -http=:$WASM_HTTP_PORT ./cmd/client/main.go &
 
 caddy run

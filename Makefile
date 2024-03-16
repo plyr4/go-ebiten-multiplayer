@@ -2,13 +2,20 @@ BUILD_DATE_TAG=$(shell date "+d%y.%m.%d-t%H.%M")
 
 IMAGE_PUBLISH_PATH?=docker.io/davidvader/go-ebiten-multiplayer
 
-client:
+clt:
 	@echo "running client directly"
-	go run client/main.go
+	CLIENT_WS_HOST=localhost:8091 \
+		go run cmd/client/main.go
 
-server:
-	@echo "running server entrypoint directly"
-	./entrypoint.sh
+clt-local:
+	@echo "running client directly"
+	CLIENT_MULTIPLAYER=false \
+		go run cmd/client/main.go
+
+srv:
+	@echo "running client directly"
+	WS_SERVER_HOST=localhost:8091 \
+		go run cmd/server/main.go
 
 kill-server:
 	@echo "Killing any frozen wasm processes related to specified ports"

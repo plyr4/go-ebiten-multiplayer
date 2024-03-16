@@ -1,3 +1,5 @@
 package constants
 
-const CLIENT_SUBPROTOCOL = "echo"
+const (
+	CLIENT_SUBPROTOCOL = "echo"
+)
