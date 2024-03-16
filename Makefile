@@ -17,7 +17,7 @@ srv:
 	WS_SERVER_HOST=localhost:8091 \
 		go run cmd/server/main.go
 
-kill-server:
+kill-srv:
 	@echo "Killing any frozen wasm processes related to specified ports"
 	for port in 8080 8090 8091; do \
 		for process in nc wasmserve curl main; do \
