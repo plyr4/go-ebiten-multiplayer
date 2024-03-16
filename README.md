@@ -21,7 +21,7 @@ For local dev:
 
 - Build and run via Docker and web assembly.
     ```bash
-    $ make up
+    make up
     ```
 - Visit http://localhost:8080.
 
@@ -35,9 +35,12 @@ _Or_
     make clt
     ```
 
-- Disable multiplayer by setting `CLIENT_MULTIPLAYER` to `false`.
+- Disable multiplayer by using `make clt-local` or by setting `CLIENT_MULTIPLAYER` to `false`.
     ```bash
+    make clt-local
+    # or
     export CLIENT_MULTIPLAYER=false
+    make clt
     ```
 
 ## Troubleshooting
