@@ -8,6 +8,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/plyr4/go-ebiten-multiplayer/constants"
+	"golang.org/x/time/rate"
 
 	"github.com/sirupsen/logrus"
 	"nhooyr.io/websocket"
@@ -48,10 +49,11 @@ func (cfg *Config) ValidateAndNullify() error {
 
 // Client houses a websocket connection
 type Client struct {
-	ctx        context.Context
-	config     *Config
-	connection *websocket.Conn
-	logger     *logrus.Entry
+	ctx         context.Context
+	config      *Config
+	connection  *websocket.Conn
+	logger      *logrus.Entry
+	rateLimiter *rate.Limiter
 }
 
 // New creates a new Client from the environment
@@ -87,6 +89,10 @@ func New(logger *logrus.Entry, opts ...Opt) (*Client, error) {
 		)
 	c.logger = logger
 
+	// rate limiting
+	latency := constants.CLIENT_WS_LATENCY
+	c.rateLimiter = rate.NewLimiter(rate.Every(latency), 10)
+
 	return c, nil
 }
 
@@ -112,7 +118,12 @@ func (c *Client) URL() string {
 
 // create a websocket connection
 func (c *Client) Connect() error {
-	c.logger.Infof("connecting to: %s", c.URL())
+	c.logger.Tracef("connecting to: %s", c.URL())
+
+	err := c.rateLimiter.Wait(c.ctx)
+	if err != nil {
+		return errors.Wrap(err, "failed to wait for rate limiter")
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
@@ -123,25 +134,29 @@ func (c *Client) Connect() error {
 		},
 	}
 
-	var err error
 	c.connection, _, err = websocket.Dial(ctx, c.URL(), &opts)
 	if err != nil || c.connection == nil {
 		if c.connection == nil {
-			err = errors.New("connection is nil")
+			if err == nil {
+				err = errors.New("connection is nil")
+			} else {
+				err = errors.Wrap(err, "connection is nil")
+			}
 		}
 
-		e := errors.Wrap(err, "unable to dial")
-
-		c.logger.Error(e)
-
-		return e
+		return errors.Wrap(err, "unable to dial")
 	}
 
 	return nil
 }
 
 func (c *Client) Reconnect() error {
-	c.logger.Trace("reconnecting ws client")
+	c.logger.Tracef("reconnecting to: %s", c.URL())
+
+	err := c.rateLimiter.Wait(c.ctx)
+	if err != nil {
+		return errors.Wrap(err, "failed to wait for rate limiter")
+	}
 
 	if c.connection != nil {
 		c.connection.CloseNow()
@@ -153,17 +168,38 @@ func (c *Client) Reconnect() error {
 func (c *Client) Close(msg string) error {
 	c.logger.Tracef("closing ws client: %s", msg)
 
+	if c.connection == nil {
+		return errors.New("connection is nil")
+	}
+
 	if c.connection != nil {
 		return c.connection.Close(websocket.StatusNormalClosure, msg)
 	}
 
-	return errors.New("cannot close a nil connection")
+	return nil
+}
+
+func (c *Client) IsConnected() bool {
+	if c.connection == nil {
+		return false
+	}
+
+	return c.connection.Ping(c.ctx) == nil
 }
 
 func (c *Client) Send(msg interface{}) error {
 	c.logger.Tracef("sending msg: %v", msg)
 
-	err := wsjson.Write(c.ctx, c.connection, msg)
+	err := c.rateLimiter.Wait(c.ctx)
+	if err != nil {
+		return errors.Wrap(err, "failed to wait for rate limiter")
+	}
+
+	if c.connection == nil {
+		return errors.New("connection is nil")
+	}
+
+	err = wsjson.Write(c.ctx, c.connection, msg)
 	if err != nil {
 		e := errors.Wrap(err, "unable to write")
 
@@ -180,7 +216,16 @@ func (c *Client) Send(msg interface{}) error {
 func (c *Client) Receive(msg interface{}) (interface{}, error) {
 	c.logger.Trace("receiving msg")
 
-	err := wsjson.Read(c.ctx, c.connection, &msg)
+	err := c.rateLimiter.Wait(c.ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to wait for rate limiter")
+	}
+
+	if c.connection == nil {
+		return nil, errors.New("connection is nil")
+	}
+
+	err = wsjson.Read(c.ctx, c.connection, &msg)
 	if err != nil {
 		e := errors.Wrap(err, "unable to read")
 

@@ -24,7 +24,9 @@ type ClientUpdate struct {
 
 // todo: find some way to unify this with the player entity
 type PlayerData struct {
-	UUID string  `json:"uuid"`
-	X    float64 `json:"x"`
-	Y    float64 `json:"y"`
+	UUID      string  `json:"uuid"`
+	Connected bool    `json:"connected"`
+	Hue       float64 `json:"hue"`
+	X         float64 `json:"x"`
+	Y         float64 `json:"y"`
 }

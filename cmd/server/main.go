@@ -14,7 +14,7 @@ import (
 )
 
 func main() {
-	logrus.SetLevel(logrus.TraceLevel)
+	logrus.SetLevel(logrus.DebugLevel)
 
 	host := os.Getenv("SERVER_WS_HOST")
 

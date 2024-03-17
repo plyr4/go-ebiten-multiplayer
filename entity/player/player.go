@@ -3,8 +3,11 @@ package player
 import (
 	"bytes"
 	"image"
+	"math"
+	"math/rand"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/colorm"
 	"github.com/plyr4/go-ebiten-multiplayer/entity"
 	"github.com/plyr4/go-ebiten-multiplayer/input"
 	"github.com/plyr4/go-ebiten-multiplayer/resources/images"
@@ -14,6 +17,8 @@ type Player struct {
 	entity.Entity
 	speed float64
 	img   *ebiten.Image
+	// debug random hue for each player
+	Hue float64
 }
 
 func New() (*Player, error) {
@@ -21,7 +26,6 @@ func New() (*Player, error) {
 	p.X = 0
 	p.Y = 0
 	p.speed = 2
-
 	img, _, err := image.Decode(bytes.NewReader(images.Gopher))
 	if err != nil {
 		return nil, err
@@ -29,14 +33,19 @@ func New() (*Player, error) {
 
 	p.img = ebiten.NewImageFromImage(img)
 
+	p.Hue = 2.0 * math.Pi * (rand.Float64() * 50)
+
 	return p, nil
 }
 
 func (p *Player) Draw(screen *ebiten.Image) error {
-	opts := &ebiten.DrawImageOptions{}
+	opts := &colorm.DrawImageOptions{}
 	opts.GeoM.Translate(p.X, p.Y)
 
-	screen.DrawImage(p.img, opts)
+	cm := colorm.ColorM{}
+	cm.Reset()
+	cm.RotateHue(p.Hue)
+	colorm.DrawImage(screen, p.img, cm, opts)
 
 	return nil
 }

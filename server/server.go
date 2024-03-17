@@ -20,8 +20,11 @@ import (
 var players = map[string]*ws.PlayerData{}
 var mu sync.RWMutex
 
-// todo: move this implementation into a server package
+// todo: refactor most of this into ws package
+// this package should be the actual server logic and how we manage players
 type ClientServer struct {
+	// exported because we set it somewhere else
+	// todo: expose a WithLogger method someday
 	Logger *logrus.Entry
 }
 
@@ -51,20 +54,40 @@ func (s ClientServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// todo: capture the uuid of the client connection here, not in the client update message
 	// todo: attach the player info to the logger fields
+	// todo: refactor most of this into ws package under like ClientConnection or something
 	// connected++
 	// todo: clean up connected players
 	// defer func() { connected-- }()
 
-	// todo: make this configurable
-	latency := time.Millisecond * 1
+	// how do i identify the uuid of the client before sending or receiving messages???
 
+	// todo: verify some kind of token that allows players to connect to the server
+	// maybe a mac address can have 3 open windows or something
+
+	// todo: make this configurable
+	latency := constants.SERVER_WS_LATENCY
 	rateLimiter := rate.NewLimiter(rate.Every(latency), 10)
+
+	// identify client uuid earlier, using request headers
+	clientUUID := ""
 
 	for {
 		// receive messages from the client
-		err = s.handleClientMessage(r.Context(), conn, rateLimiter)
+		clientUUID, err = s.handleClientMessage(r.Context(), conn, rateLimiter, clientUUID)
 		if err != nil {
 			s.Logger.Errorf("failed to handle client message: %v", err)
+
+			// todo: should be able to handle disconnection better
+			// the server shouldn't continuously grow larger when players are not connected
+			// after X amount of time we should remove the player from the map
+			// disconnected would show them as grayed out, then eventually ejected
+
+			if len(clientUUID) > 0 {
+				s.Logger.Infof("client disconnected: %v", clientUUID)
+				mu.Lock()
+				players[clientUUID].Connected = false
+				mu.Unlock()
+			}
 
 			return
 		}
@@ -72,28 +95,22 @@ func (s ClientServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleClientMessage reads from the WebSocket connection then handles the incoming message
-func (s ClientServer) handleClientMessage(ctx context.Context, conn *websocket.Conn, rateLimiter *rate.Limiter) error {
+func (s ClientServer) handleClientMessage(ctx context.Context, conn *websocket.Conn, rateLimiter *rate.Limiter, clientUUID string) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, time.Second*10)
 	defer cancel()
-
-	s.Logger.Tracef("waiting %v before reading", rateLimiter.Burst())
 
 	// apply server latency per client
 	err := rateLimiter.Wait(ctx)
 	if err != nil {
-		return errors.Wrap(err, "failed to wait for rate limiter")
+		return clientUUID, errors.Wrap(err, "failed to wait for rate limiter")
 	}
-
-	s.Logger.Trace("reading msg from client")
 
 	msg := new(ws.Msg)
 
 	err = wsjson.Read(ctx, conn, msg)
 	if err != nil {
-		return errors.Wrap(err, "failed to read")
+		return clientUUID, errors.Wrap(err, "failed to read")
 	}
-
-	s.Logger.Tracef("received msg: %v", msg)
 
 	// handle the message based on type
 	// todo: implement this
@@ -112,6 +129,8 @@ func (s ClientServer) handleClientMessage(ctx context.Context, conn *websocket.C
 
 		players[msg.ClientUpdate.Player.UUID].X = msg.ClientUpdate.Player.X
 		players[msg.ClientUpdate.Player.UUID].Y = msg.ClientUpdate.Player.Y
+		players[msg.ClientUpdate.Player.UUID].Connected = true
+		clientUUID = msg.ClientUpdate.Player.UUID
 
 		mu.Unlock()
 
@@ -139,7 +158,7 @@ func (s ClientServer) handleClientMessage(ctx context.Context, conn *websocket.C
 
 		err = wsjson.Write(ctx, conn, msg)
 		if err != nil {
-			return errors.Wrap(err, "failed to write server update")
+			return clientUUID, errors.Wrap(err, "failed to write server update")
 		}
 	} else if msg.ServerUpdate != nil {
 		s.Logger.Tracef("received server update: %v", msg)
@@ -149,29 +168,30 @@ func (s ClientServer) handleClientMessage(ctx context.Context, conn *websocket.C
 
 	// error and closure handling
 	// not sure why this is necessary
+	// todo: handle disconnects closures and errors better
 	if websocket.CloseStatus(err) == websocket.StatusNormalClosure {
-		return errors.Wrap(err, "received normal closure")
+		return clientUUID, errors.Wrap(err, "received normal closure")
 	}
 
 	if websocket.CloseStatus(err) == websocket.StatusGoingAway {
-		return errors.Wrap(err, "received going away")
+		return clientUUID, errors.Wrap(err, "received going away")
 	}
 
 	if websocket.CloseStatus(err) == websocket.StatusAbnormalClosure {
-		return errors.Wrap(err, "received abnormal closure")
+		return clientUUID, errors.Wrap(err, "received abnormal closure")
 	}
 
 	if websocket.CloseStatus(err) == websocket.StatusUnsupportedData {
-		return errors.Wrap(err, "received unsupported data")
+		return clientUUID, errors.Wrap(err, "received unsupported data")
 	}
 
 	if websocket.CloseStatus(err) == websocket.StatusPolicyViolation {
-		return errors.Wrap(err, "received policy violation")
+		return clientUUID, errors.Wrap(err, "received policy violation")
 	}
 
 	if websocket.CloseStatus(err) == websocket.StatusMessageTooBig {
-		return errors.Wrap(err, "received message too big")
+		return clientUUID, errors.Wrap(err, "received message too big")
 	}
 
-	return err
+	return clientUUID, err
 }

@@ -30,3 +30,4 @@ Dockerfile.internal
 examples/
 .vscode/
 .idea/
+.DS_Store

@@ -21,6 +21,7 @@ func (i *Input) Reset() {
 }
 
 func (i *Input) Update() {
+	// todo: fix: this doesnt reset when the game window loses focus
 	i.Reset()
 
 	i.keys = inpututil.AppendPressedKeys(i.keys[:0])

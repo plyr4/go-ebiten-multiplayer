@@ -1,7 +1,7 @@
 package game
 
 import (
-	"fmt"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/plyr4/go-ebiten-multiplayer/ws"
@@ -27,18 +27,35 @@ func (g *Game) RunMultiplayer() error {
 		return err
 	}
 
+	// todo: clean this up
 	err = g.wsClient.Connect()
-	if err != nil {
-		return err
+	for i := 0; err != nil; i++ {
+		if i > 2 {
+			i = 2
+		}
+
+		err = g.wsClient.Connect()
+		if err == nil {
+			break
+		}
+
+		if i == 2 {
+			err = errors.Wrap(err, "unable to initialize connection")
+
+			g.logger.Error(err)
+		}
+
+		t := 1 + i*i
+
+		time.Sleep(time.Duration(t) * time.Second)
 	}
 
 	sendErrs := 0
 	recvErrs := 0
 
-	// latency := 0 * time.Millisecond
-
-	// loop on the websocket connection forever
-	// if multiplayer ends, the game will shutdown
+	// maintain a connection
+	// ping (client state) ->
+	// <- pong (server state)
 	for {
 		msg := new(ws.Msg)
 		x, y := g.player.Position()
@@ -46,6 +63,7 @@ func (g *Game) RunMultiplayer() error {
 			Status: "client-ping",
 			Player: ws.PlayerData{
 				UUID: g.uuid,
+				Hue:  g.player.Hue,
 				X:    x,
 				Y:    y,
 			},
@@ -59,9 +77,8 @@ func (g *Game) RunMultiplayer() error {
 			sendErrs = 0
 		}
 
-		// time.Sleep(latency)
-
 		msg = new(ws.Msg)
+
 		_, err = g.wsClient.Receive(msg)
 		if err != nil {
 			recvErrs++
@@ -70,6 +87,7 @@ func (g *Game) RunMultiplayer() error {
 			recvErrs = 0
 		}
 
+		// todo: clean this up
 		if msg.Ping != nil {
 			g.logger.Tracef("received ping: %v", msg)
 		} else if msg.ClientUpdate != nil {
@@ -81,19 +99,31 @@ func (g *Game) RunMultiplayer() error {
 			g.logger.Tracef("received unknown message type: %v", msg)
 		}
 
-		// time.Sleep(latency)
-
+		// todo: clean this up
 		if sendErrs > 3 || recvErrs > 3 {
 			g.logger.Error("too many websocket connection failures, attempting to reconnect")
 
-			rErr := g.wsClient.Reconnect()
-			if rErr != nil {
-				rErr = errors.Wrap(rErr, "unable to reconnect")
+			for i := 0; ; i++ {
+				if i > 2 {
+					i = 2
+				}
 
-				g.logger.Error(rErr)
+				rErr := g.wsClient.Reconnect()
+				if rErr == nil {
+					break
+				}
 
-				return fmt.Errorf("websocket connection failed: %v", rErr)
+				if i == 2 {
+					rErr = errors.Wrap(rErr, "unable to reconnect")
+
+					g.logger.Error(rErr)
+				}
+
+				t := 1 + i*i
+
+				time.Sleep(time.Duration(t) * time.Second)
 			}
+
 			sendErrs = 0
 			recvErrs = 0
 		}

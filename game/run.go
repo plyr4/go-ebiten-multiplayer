@@ -16,21 +16,6 @@ func (g *Game) Run() error {
 	ebiten.SetWindowSize(constants.WINDOW_WIDTH, constants.WINDOW_HEIGHT)
 	ebiten.SetWindowTitle(constants.WINDOW_TITLE)
 
-	// multiplayer
-	if g.multiplayer {
-		g.logger.Debug("running in multiplayer mode")
-
-		go func() {
-			// this should run forever
-			g.error = g.RunMultiplayer()
-			if g.error == nil {
-				g.logger.Error("multiplayer ended without error, this should not happen")
-			}
-		}()
-	} else {
-		g.logger.Debug("running in local mode")
-	}
-
 	// player
 	p, err := player.New()
 	if err != nil {
@@ -38,9 +23,24 @@ func (g *Game) Run() error {
 	}
 
 	g.player = p
-
-	// entities
 	g.entities = append(g.entities, p)
+
+	// multiplayer
+	if g.multiplayer {
+		g.logger.Debug("running in multiplayer mode")
+
+		go func() {
+			// this should run forever
+			err := g.RunMultiplayer()
+			if err != nil {
+				g.logger.Error("multiplayer ended without error, this should not happen")
+			} else {
+				g.logger.Error("multiplayer ended without error, this should not happen")
+			}
+		}()
+	} else {
+		g.logger.Debug("running in local mode")
+	}
 
 	g.logger.Debug("starting game")
 

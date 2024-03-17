@@ -16,17 +16,25 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeigh
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
+	// todo: obviously clean this up
+
 	// main background
 	screen.Fill(color.RGBA{0xff, 0xff, 0xff, 0xff})
 
-	// debug
-	debugObjectSize := constants.WINDOW_WIDTH / 15
-	// debugRed := color.RGBA{0xff, 0, 0, 0xff}
-	opts := &ebiten.DrawImageOptions{}
+	// server status
+	serverStatusSize := 8
+	var pointerImage = ebiten.NewImage(serverStatusSize, serverStatusSize)
+	serverStatusColor := color.RGBA{0xff, 0, 0, 0xff}
 
-	// box
-	var pointerImage = ebiten.NewImage(debugObjectSize, debugObjectSize)
-	pointerImage.Fill(color.RGBA{0xff, 0, 0, 0xff})
+	if g.wsClient != nil {
+		if g.wsClient.IsConnected() {
+			serverStatusColor = color.RGBA{0, 0xff, 0, 0xff}
+		}
+	}
+
+	pointerImage.Fill(serverStatusColor)
+
+	opts := &ebiten.DrawImageOptions{}
 	screen.DrawImage(pointerImage, opts)
 
 	ebitenutil.DebugPrint(screen,
@@ -37,10 +45,6 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			"\n"+fmt.Sprintf("connected players: %v", g.Debug.ConnectedPlayers)+
 			"\ninput: "+fmt.Sprintf("%v", *g.Input)+
 			"\n\ntime: "+time.Now().Format(time.RFC3339))
-	for _, e := range g.entities {
-		e.Draw(screen)
-	}
-
 	// todo: just convert the other players to entities... avoid this mess
 	// todo: when we receive a server update, we make sure those entities exist in our list
 	// entities could include other things like enemies, items, etc.
@@ -50,16 +54,28 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	// it would make updating the list of other players easier
 	// assign a new player a color and maintain that color, draw it here
 
+	// todo: fix: when these overlap they are not happy
+	// its possible that the map is getting jumbled every time we draw
 	for _, p := range g.Debug.ConnectedPlayers {
-		if p.UUID == g.uuid {
+		if p.UUID == g.uuid || !p.Connected {
 			continue
 		}
+
 		pp := g.player
-		x, y := pp.X, pp.Y
+
+		x, y, hue := pp.X, pp.Y, pp.Hue
 		pp.X = p.X
 		pp.Y = p.Y
+		pp.Hue = p.Hue
+
 		pp.Draw(screen)
+
 		pp.X = x
 		pp.Y = y
+		pp.Hue = hue
+	}
+
+	for _, e := range g.entities {
+		e.Draw(screen)
 	}
 }

@@ -34,7 +34,7 @@ run:
 	@echo "running container"
 	docker run -d \
 	    -p '8080:8080' \
-	    -e SERVER_WS_HOST=localhost:8080 \
+	    -e SERVER_WS_HOST=localhost:8091 \
 	    -e CLIENT_WS_HOST=localhost:8080 \
 	    --name=game game:local
 
