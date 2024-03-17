@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/plyr4/go-ebiten-multiplayer/shared/constants"
+	"github.com/plyr4/go-ebiten-multiplayer/constants"
 
 	"github.com/sirupsen/logrus"
 	"nhooyr.io/websocket"
@@ -55,11 +55,16 @@ type Client struct {
 }
 
 // New creates a new Client from the environment
-func New() *Client {
+func New(logger *logrus.Entry, opts ...Opt) (*Client, error) {
 	c := new(Client)
 
-	// context
-	c.WithContext(context.Background())
+	// apply all provided configuration options
+	for _, opt := range opts {
+		err := opt(c)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	// config
 	cfg := &Config{
@@ -71,26 +76,29 @@ func New() *Client {
 	c.config = cfg
 
 	// logging
-	logger := logrus.NewEntry(logrus.StandardLogger()).WithFields(
-		logrus.Fields{
-			"protocol": cfg.Protocol,
-			"host":     cfg.Host,
-			"path":     cfg.ClientPath,
-		},
-	)
-	c.WithLogger(logger)
+	logger = logger.
+		WithFields(
+			logrus.Fields{
+				"module":   "ws-client",
+				"protocol": cfg.Protocol,
+				"host":     cfg.Host,
+				"path":     cfg.ClientPath,
+			},
+		)
+	c.logger = logger
 
-	return c
+	return c, nil
 }
 
-// WithContext attaches a context to the Client
-func (c *Client) WithContext(ctx context.Context) {
-	c.ctx = ctx
-}
+type Opt func(*Client) error
 
-// WithLogger attaches a logger to the Client
-func (c *Client) WithLogger(l *logrus.Entry) {
-	c.logger = l
+// WithContext sets the internal context
+func WithContext(ctx context.Context) Opt {
+	return func(g *Client) error {
+		g.ctx = ctx
+
+		return nil
+	}
 }
 
 // crafts a websocket URL

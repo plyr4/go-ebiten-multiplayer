@@ -4,10 +4,11 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/plyr4/go-ebiten-multiplayer/shared/constants"
+	"github.com/plyr4/go-ebiten-multiplayer/constants"
 	"github.com/plyr4/go-ebiten-multiplayer/ws"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/time/rate"
@@ -15,59 +16,55 @@ import (
 	"nhooyr.io/websocket/wsjson"
 )
 
-// server status
-var connectedPlayers = 0
+// server state
+var players = map[string]*ws.PlayerData{}
+var mu sync.RWMutex
 
 // todo: move this implementation into a server package
-type ClientServer struct{}
+type ClientServer struct {
+	Logger *logrus.Entry
+}
 
 func (s ClientServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// accept the client connection
-	c, err := websocket.Accept(w, r, &websocket.AcceptOptions{
+	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
 		Subprotocols: []string{
 			constants.CLIENT_SUBPROTOCOL,
 		},
 	})
 	if err != nil {
-		logrus.Errorf("%v", err)
+		s.Logger.Errorf("%v", err)
 
 		return
 	}
 
-	defer c.CloseNow()
+	defer conn.CloseNow()
 
 	// check for client protocol
-	if c.Subprotocol() != constants.CLIENT_SUBPROTOCOL {
-		c.Close(websocket.StatusPolicyViolation,
-			fmt.Sprintf("expected subprotocol %q but got %q", constants.CLIENT_SUBPROTOCOL, c.Subprotocol()),
+	if conn.Subprotocol() != constants.CLIENT_SUBPROTOCOL {
+		conn.Close(websocket.StatusPolicyViolation,
+			fmt.Sprintf("expected subprotocol %q but got %q", constants.CLIENT_SUBPROTOCOL, conn.Subprotocol()),
 		)
 
 		return
 	}
 
-	connectedPlayers++
-	defer func() { connectedPlayers-- }()
+	// todo: capture the uuid of the client connection here, not in the client update message
+	// todo: attach the player info to the logger fields
+	// connected++
+	// todo: clean up connected players
+	// defer func() { connected-- }()
 
-	l := rate.NewLimiter(rate.Every(time.Millisecond*100), 10)
+	// todo: make this configurable
+	latency := time.Millisecond * 1
+
+	rateLimiter := rate.NewLimiter(rate.Every(latency), 10)
+
 	for {
 		// receive messages from the client
-		err = handleClientMessage(r.Context(), c, l)
-
-		// handle closures
-		if websocket.CloseStatus(err) == websocket.StatusNormalClosure {
-			logrus.Tracef("received close message from client: %v", err)
-
-			return
-		}
-
-		if websocket.CloseStatus(err) == websocket.StatusGoingAway {
-			logrus.Tracef("received going away message from client: %v", err)
-
-			return
-		}
-
+		err = s.handleClientMessage(r.Context(), conn, rateLimiter)
 		if err != nil {
-			logrus.Errorf("failed to handle client message from %v: %v", r.RemoteAddr, err)
+			s.Logger.Errorf("failed to handle client message: %v", err)
 
 			return
 		}
@@ -75,57 +72,105 @@ func (s ClientServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleClientMessage reads from the WebSocket connection then handles the incoming message
-func handleClientMessage(ctx context.Context, c *websocket.Conn, l *rate.Limiter) error {
-	// 10s to complete
+func (s ClientServer) handleClientMessage(ctx context.Context, conn *websocket.Conn, rateLimiter *rate.Limiter) error {
 	ctx, cancel := context.WithTimeout(ctx, time.Second*10)
 	defer cancel()
 
-	logrus.Tracef("waiting %v before reading", l.Burst())
+	s.Logger.Tracef("waiting %v before reading", rateLimiter.Burst())
 
-	err := l.Wait(ctx)
+	// apply server latency per client
+	err := rateLimiter.Wait(ctx)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "failed to wait for rate limiter")
 	}
 
-	logrus.Trace("reading msg")
+	s.Logger.Trace("reading msg from client")
 
 	msg := new(ws.Msg)
 
-	err = wsjson.Read(ctx, c, msg)
+	err = wsjson.Read(ctx, conn, msg)
 	if err != nil {
 		return errors.Wrap(err, "failed to read")
 	}
 
-	logrus.Tracef("got msg: %v", msg)
+	s.Logger.Tracef("received msg: %v", msg)
 
 	// handle the message based on type
 	// todo: implement this
 	if msg.Ping != nil {
-		logrus.Tracef("received ping: %v", msg)
+		s.Logger.Tracef("received ping: %v", msg)
 	} else if msg.ClientUpdate != nil {
-		logrus.Tracef("received client update: %v", msg)
+		s.Logger.Tracef("received client update: %v", msg)
+
+		mu.Lock()
+
+		// update this player
+		_, ok := players[msg.ClientUpdate.Player.UUID]
+		if !ok {
+			players[msg.ClientUpdate.Player.UUID] = &msg.ClientUpdate.Player
+		}
+
+		players[msg.ClientUpdate.Player.UUID].X = msg.ClientUpdate.Player.X
+		players[msg.ClientUpdate.Player.UUID].Y = msg.ClientUpdate.Player.Y
+
+		mu.Unlock()
+
+		// respond to the client with a server update
+		msg = new(ws.Msg)
+
+		su := ws.ServerUpdate{
+			Status:  "ok",
+			Players: []ws.PlayerData{},
+		}
+
+		mu.RLock()
+		for _, p := range players {
+			if p == nil {
+				continue
+			}
+
+			su.Players = append(su.Players, *p)
+		}
+		mu.RUnlock()
+
+		msg.ServerUpdate = &su
+
+		s.Logger.Tracef("responding with server update: %v", su)
+
+		err = wsjson.Write(ctx, conn, msg)
+		if err != nil {
+			return errors.Wrap(err, "failed to write server update")
+		}
 	} else if msg.ServerUpdate != nil {
-		logrus.Tracef("received server update: %v", msg)
+		s.Logger.Tracef("received server update: %v", msg)
 	} else {
-		logrus.Tracef("received unknown message type: %v", msg)
+		s.Logger.Tracef("received unknown message type: %v", msg)
 	}
 
-	// respond to the client with a server update
-	// todo: move this into the handler above and respond when asked
-	msg = new(ws.Msg)
-
-	su := ws.ServerUpdate{
-		Status:           "ok",
-		ConnectedPlayers: connectedPlayers,
+	// error and closure handling
+	// not sure why this is necessary
+	if websocket.CloseStatus(err) == websocket.StatusNormalClosure {
+		return errors.Wrap(err, "received normal closure")
 	}
 
-	msg.ServerUpdate = &su
+	if websocket.CloseStatus(err) == websocket.StatusGoingAway {
+		return errors.Wrap(err, "received going away")
+	}
 
-	logrus.Tracef("sending server update: %v", su)
+	if websocket.CloseStatus(err) == websocket.StatusAbnormalClosure {
+		return errors.Wrap(err, "received abnormal closure")
+	}
 
-	err = wsjson.Write(ctx, c, msg)
-	if err != nil {
-		return errors.Wrap(err, "failed to write server update")
+	if websocket.CloseStatus(err) == websocket.StatusUnsupportedData {
+		return errors.Wrap(err, "received unsupported data")
+	}
+
+	if websocket.CloseStatus(err) == websocket.StatusPolicyViolation {
+		return errors.Wrap(err, "received policy violation")
+	}
+
+	if websocket.CloseStatus(err) == websocket.StatusMessageTooBig {
+		return errors.Wrap(err, "received message too big")
 	}
 
 	return err

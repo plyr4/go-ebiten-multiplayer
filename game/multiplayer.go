@@ -2,7 +2,6 @@ package game
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/pkg/errors"
 	"github.com/plyr4/go-ebiten-multiplayer/ws"
@@ -19,8 +18,16 @@ func (g *Game) RunMultiplayer() error {
 	g.logger.Infof("establishing multiplayer session")
 
 	// networking
-	g.wsClient = ws.New()
-	err := g.wsClient.Connect()
+	var err error
+	g.wsClient, err = ws.New(
+		g.logger,
+		ws.WithContext(g.ctx),
+	)
+	if err != nil {
+		return err
+	}
+
+	err = g.wsClient.Connect()
 	if err != nil {
 		return err
 	}
@@ -28,13 +35,20 @@ func (g *Game) RunMultiplayer() error {
 	sendErrs := 0
 	recvErrs := 0
 
+	// latency := 0 * time.Millisecond
+
 	// loop on the websocket connection forever
 	// if multiplayer ends, the game will shutdown
 	for {
 		msg := new(ws.Msg)
+		x, y := g.player.Position()
 		msg.ClientUpdate = &ws.ClientUpdate{
 			Status: "client-ping",
-			Foo:    1,
+			Player: ws.PlayerData{
+				UUID: g.uuid,
+				X:    x,
+				Y:    y,
+			},
 		}
 
 		err := g.wsClient.Send(msg)
@@ -45,7 +59,7 @@ func (g *Game) RunMultiplayer() error {
 			sendErrs = 0
 		}
 
-		time.Sleep(2 * time.Second)
+		// time.Sleep(latency)
 
 		msg = new(ws.Msg)
 		_, err = g.wsClient.Receive(msg)
@@ -62,12 +76,12 @@ func (g *Game) RunMultiplayer() error {
 			g.logger.Tracef("received client update: %v", msg)
 		} else if msg.ServerUpdate != nil {
 			g.logger.Tracef("received server update: %v", msg)
-			g.Debug.ConnectedPlayers = msg.ServerUpdate.ConnectedPlayers
+			g.Debug.ConnectedPlayers = msg.ServerUpdate.Players
 		} else {
 			g.logger.Tracef("received unknown message type: %v", msg)
 		}
 
-		time.Sleep(2 * time.Second)
+		// time.Sleep(latency)
 
 		if sendErrs > 3 || recvErrs > 3 {
 			g.logger.Error("too many websocket connection failures, attempting to reconnect")

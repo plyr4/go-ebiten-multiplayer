@@ -4,6 +4,9 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
+	"github.com/plyr4/go-ebiten-multiplayer/entity"
+	"github.com/plyr4/go-ebiten-multiplayer/entity/player"
+	"github.com/plyr4/go-ebiten-multiplayer/input"
 	"github.com/plyr4/go-ebiten-multiplayer/ws"
 	"github.com/sirupsen/logrus"
 )
@@ -16,6 +19,10 @@ type Game struct {
 	ctx         context.Context
 	error
 
+	*input.Input
+	player   *player.Player
+	entities []entity.IEntity
+
 	Running bool
 	Debug
 }
@@ -24,7 +31,7 @@ type Debug struct {
 	Foo              string
 	Roundtrips       int
 	Frame            int
-	ConnectedPlayers int
+	ConnectedPlayers []ws.PlayerData
 }
 
 // New creates a new Game instance
@@ -39,6 +46,9 @@ func New(opts ...Opt) (*Game, error) {
 		}
 	}
 
+	// initialize input
+	g.Input = new(input.Input)
+
 	err := g.Validate()
 	if err != nil {
 		return nil, errors.Wrap(err, "game is invalid")
@@ -47,7 +57,8 @@ func New(opts ...Opt) (*Game, error) {
 	// logging
 	g.logger = logrus.NewEntry(logrus.StandardLogger()).WithFields(
 		logrus.Fields{
-			"ID": g.uuid,
+			"module": "game",
+			"ID":     g.uuid,
 		},
 	)
 

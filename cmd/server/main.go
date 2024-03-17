@@ -22,7 +22,7 @@ func main() {
 		logrus.Fatal(errors.New("missing host, set $WS_SERVER_HOST"))
 	}
 
-	logrus.Tracef("running tcp server using: %v", host)
+	logrus.Infof("running tcp server using: %v", host)
 
 	l, err := net.Listen("tcp", host)
 	if err != nil {
@@ -33,7 +33,13 @@ func main() {
 
 	// create a single handle client server
 	s := &http.Server{
-		Handler:      server.ClientServer{},
+		Handler: server.ClientServer{
+			Logger: logrus.NewEntry(logrus.StandardLogger()).
+				WithFields(logrus.Fields{
+					"module": "ws-server",
+					"host":   host,
+				}),
+		},
 		ReadTimeout:  time.Second * 10,
 		WriteTimeout: time.Second * 10,
 	}
