@@ -31,6 +31,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 	ebitenutil.DebugPrint(screen,
 		"debug: "+g.Debug.Foo+
+			"\n"+fmt.Sprintf("fps: %v", ebiten.ActualFPS())+
 			"\nsuccessful server roundtrips: "+strconv.Itoa(g.Debug.Roundtrips)+
 			"\ng.Debug.Frame: "+strconv.Itoa(g.Debug.Frame)+
 			"\n"+fmt.Sprintf("connected players: %v", g.Debug.ConnectedPlayers)+
