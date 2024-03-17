@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/plyr4/go-ebiten-multiplayer/game"
@@ -13,7 +14,7 @@ import (
 )
 
 func main() {
-	logrus.SetLevel(logrus.DebugLevel)
+	logrus.SetLevel(logrus.TraceLevel)
 
 	ctx := context.Background()
 
@@ -23,13 +24,17 @@ func main() {
 	// send os signals to sigs channel
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, os.Interrupt, syscall.SIGTERM)
+    
+    // todo: unified env variable cli flags etc
+    mp := len(os.Getenv("CLIENT_MULTIPLAYER")) == 0 || 
+        strings.ToLower(os.Getenv("CLIENT_MULTIPLAYER")) == "true"
 
 	// create the game
 	g, err := game.New(
 		game.WithContext(ctx),
 		game.WithUUID(id),
 		// todo: cli or flags
-		game.WithMultiplayer(os.Getenv("CLIENT_MULTIPLAYER") == "true"),
+		game.WithMultiplayer(mp),
 	)
 	if err != nil {
 		logrus.Error(err)

@@ -4,7 +4,6 @@ IMAGE_PUBLISH_PATH?=docker.io/davidvader/go-ebiten-multiplayer
 
 clt:
 	@echo "running client directly"
-	CLIENT_WS_HOST=localhost:8091 \
 		go run cmd/client/main.go
 
 clt-local:
@@ -14,7 +13,6 @@ clt-local:
 
 srv:
 	@echo "running client directly"
-	WS_SERVER_HOST=localhost:8091 \
 		go run cmd/server/main.go
 
 kill-srv:
@@ -34,7 +32,11 @@ publish:
 
 run:
 	@echo "running container"
-	docker run -d -p '8080:8080' --name=game game:local
+	docker run -d \
+	    -p '8080:8080' \
+	    -e SERVER_WS_HOST=localhost:8080 \
+	    -e CLIENT_WS_HOST=localhost:8080 \
+	    --name=game game:local
 
 down:
 	@echo "tearing down"

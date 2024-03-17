@@ -8,18 +8,19 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/pkg/errors"
-
+	"github.com/plyr4/go-ebiten-multiplayer/constants"
 	"github.com/plyr4/go-ebiten-multiplayer/server"
 	"github.com/sirupsen/logrus"
 )
 
 func main() {
-	logrus.SetLevel(logrus.DebugLevel)
+	logrus.SetLevel(logrus.TraceLevel)
 
-	host := os.Getenv("WS_SERVER_HOST")
+	host := os.Getenv("SERVER_WS_HOST")
+
 	if len(host) == 0 {
-		logrus.Fatal(errors.New("missing host, set $WS_SERVER_HOST"))
+		logrus.Warnf("missing $SERVER_WS_HOST, using default: %s", constants.SERVER_WS_DEFAULT_HOST)
+		host = constants.SERVER_WS_DEFAULT_HOST
 	}
 
 	logrus.Infof("running tcp server using: %v", host)

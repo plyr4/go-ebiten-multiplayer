@@ -16,7 +16,7 @@ import (
 
 var DEFAULT_WS_CONFIG = Config{
 	Protocol:   "ws",
-	Host:       "localhost:8080",
+	Host:       constants.SERVER_WS_DEFAULT_HOST,
 	ClientPath: "client",
 }
 
