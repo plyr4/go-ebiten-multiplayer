@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"sort"
 	"sync"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 )
 
 // server state
+// todo: maintain an efficient sorted list of this data for responding faster to the client
 var players = map[string]*ws.PlayerData{}
 var mu sync.RWMutex
 
@@ -143,13 +145,24 @@ func (s ClientServer) handleClientMessage(ctx context.Context, conn *websocket.C
 		}
 
 		mu.RLock()
-		for _, p := range players {
-			if p == nil {
+
+		// sort the players by their UUID so that the order is consistent
+		keys := make([]string, 0, len(players))
+		for k := range players {
+			keys = append(keys, k)
+		}
+
+		sort.Strings(keys)
+
+		for _, k := range keys {
+			p, ok := players[k]
+			if !ok || p == nil {
 				continue
 			}
 
 			su.Players = append(su.Players, *p)
 		}
+
 		mu.RUnlock()
 
 		msg.ServerUpdate = &su
