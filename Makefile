@@ -1,18 +1,18 @@
 BUILD_DATE_TAG=$(shell date "+d%y.%m.%d-t%H.%M")
-
 IMAGE_PUBLISH_PATH?=docker.io/davidvader/go-ebiten-multiplayer
+DOCKERFILE_PATH?=Dockerfile
 
 clt:
-	@echo "running client directly"
+	@echo "running client"
 		go run cmd/client/main.go
 
 clt-local:
-	@echo "running client directly"
+	@echo "running client in local mode"
 	CLIENT_MULTIPLAYER=false \
 		go run cmd/client/main.go
 
 srv:
-	@echo "running client directly"
+	@echo "running server"
 		go run cmd/server/main.go
 
 kill-srv:
@@ -27,8 +27,7 @@ up: build run
 
 restart: down up
 
-publish:
-	build-static tag push
+publish: build-static tag push
 
 run:
 	@echo "running container"
@@ -45,11 +44,11 @@ down:
 
 build:
 	@echo "building image"
-	docker-buildx build -t game:local -f Dockerfile .
+	docker-buildx build -t game:local -f ${DOCKERFILE_PATH} .
 
 build-static:
 	@echo "building static image for linux/amd64"
-	docker-buildx build -t game:local -f Dockerfile --platform=linux/amd64 .
+	docker-buildx build -t game:local -f ${DOCKERFILE_PATH} --platform=linux/amd64 .
 
 tag:
 	@echo "pushing image to ${IMAGE_PUBLISH_PATH}:${BUILD_DATE_TAG}"
@@ -58,3 +57,6 @@ tag:
 push:
 	@echo "pushing image to ${IMAGE_PUBLISH_PATH}:${BUILD_DATE_TAG}"
 	docker push ${IMAGE_PUBLISH_PATH}:${BUILD_DATE_TAG}
+
+# var/command overrides
+-include Makefile.internal

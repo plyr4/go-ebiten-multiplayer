@@ -25,8 +25,8 @@
 go.work
 
 # End of https://www.toptal.com/developers/gitignore/api/go
-
-Dockerfile.internal
+.env
+*.internal
 examples/
 .vscode/
 .idea/
