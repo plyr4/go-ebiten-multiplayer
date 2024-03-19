@@ -152,6 +152,8 @@ func (s ClientServer) handleClientMessage(ctx context.Context, conn *websocket.C
 
 		su.Players = players
 
+		// todo: fix sorting issues
+
 		msg.ServerUpdate = &su
 
 		s.Logger.Tracef("responding with server update: %v", su)
