@@ -31,16 +31,19 @@ type Config struct {
 func (cfg *Config) ValidateAndNullify() error {
 	if len(cfg.Protocol) == 0 {
 		logrus.Warnf("using default protocol: %s", DEFAULT_WS_CONFIG.Protocol)
+
 		cfg.Protocol = DEFAULT_WS_CONFIG.Protocol
 	}
 
 	if len(cfg.Host) == 0 {
 		logrus.Warnf("using default host: %s", DEFAULT_WS_CONFIG.Host)
+
 		cfg.Host = DEFAULT_WS_CONFIG.Host
 	}
 
 	if len(cfg.ClientPath) == 0 {
 		logrus.Warnf("using default client path: %s", DEFAULT_WS_CONFIG.ClientPath)
+
 		cfg.ClientPath = DEFAULT_WS_CONFIG.ClientPath
 	}
 
@@ -74,7 +77,9 @@ func New(logger *logrus.Entry, opts ...Opt) (*Client, error) {
 		Host:       os.Getenv("CLIENT_WS_HOST"),
 		ClientPath: os.Getenv("CLIENT_WS_PATH"),
 	}
+
 	cfg.ValidateAndNullify()
+
 	c.config = cfg
 
 	// logging
@@ -91,6 +96,7 @@ func New(logger *logrus.Entry, opts ...Opt) (*Client, error) {
 
 	// rate limiting
 	latency := constants.CLIENT_WS_LATENCY
+
 	c.rateLimiter = rate.NewLimiter(rate.Every(latency), 10)
 
 	return c, nil

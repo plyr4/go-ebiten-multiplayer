@@ -7,4 +7,6 @@ import (
 var (
 	//go:embed gopher.png
 	Gopher []byte
+	//go:embed runner.png
+	Runner []byte
 )

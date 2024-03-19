@@ -4,7 +4,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/pkg/errors"
 	"github.com/plyr4/go-ebiten-multiplayer/constants"
-	"github.com/plyr4/go-ebiten-multiplayer/entity/player"
+	"github.com/plyr4/go-ebiten-multiplayer/entities"
 )
 
 func (g *Game) Run() error {
@@ -17,7 +17,7 @@ func (g *Game) Run() error {
 	ebiten.SetWindowTitle(constants.WINDOW_TITLE)
 
 	// player
-	p, err := player.New()
+	p, err := entities.NewPlayer(g.Game)
 	if err != nil {
 		return errors.Wrap(err, "unable to create player")
 	}

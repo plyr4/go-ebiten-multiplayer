@@ -3,40 +3,38 @@ package game
 import (
 	"context"
 
+	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/pkg/errors"
-	"github.com/plyr4/go-ebiten-multiplayer/entity"
-	"github.com/plyr4/go-ebiten-multiplayer/entity/player"
+	"github.com/plyr4/go-ebiten-multiplayer/entities"
+
 	"github.com/plyr4/go-ebiten-multiplayer/input"
+	"github.com/plyr4/go-ebiten-multiplayer/internal"
 	"github.com/plyr4/go-ebiten-multiplayer/ws"
 	"github.com/sirupsen/logrus"
 )
 
 type Game struct {
-	uuid        string
 	multiplayer bool
 	wsClient    *ws.Client
 	logger      *logrus.Entry
 	ctx         context.Context
 	error
 
-	*input.Input
-	player   *player.Player
-	entities []entity.IEntity
+	player   *entities.Player
+	entities []entities.IEntity
 
-	Running bool
-	Debug
-}
-
-type Debug struct {
-	Foo              string
-	Roundtrips       int
-	Frame            int
-	ConnectedPlayers []ws.PlayerData
+	*internal.Game
+	*ebiten.DrawImageOptions
 }
 
 // New creates a new Game instance
 func New(opts ...Opt) (*Game, error) {
 	g := new(Game)
+
+	// initialize internals
+	g.Game = new(internal.Game)
+	g.Input = new(input.Input)
+	g.DrawImageOptions = new(ebiten.DrawImageOptions)
 
 	// apply all provided configuration options
 	for _, opt := range opts {
@@ -45,9 +43,6 @@ func New(opts ...Opt) (*Game, error) {
 			return nil, err
 		}
 	}
-
-	// initialize input
-	g.Input = new(input.Input)
 
 	err := g.Validate()
 	if err != nil {
@@ -58,7 +53,7 @@ func New(opts ...Opt) (*Game, error) {
 	g.logger = logrus.NewEntry(logrus.StandardLogger()).WithFields(
 		logrus.Fields{
 			"module": "game",
-			"ID":     g.uuid,
+			"ID":     g.UUID,
 		},
 	)
 
@@ -71,7 +66,7 @@ func (g *Game) Validate() error {
 		return errors.New("missing context")
 	}
 
-	if len(g.uuid) == 0 {
+	if len(g.UUID) == 0 {
 		return errors.New("missing uuid")
 	}
 
@@ -101,7 +96,7 @@ func WithMultiplayer(mp bool) Opt {
 // WithUUID sets the internal unique identifier
 func WithUUID(uuid string) Opt {
 	return func(g *Game) error {
-		g.uuid = uuid
+		g.UUID = uuid
 
 		return nil
 	}

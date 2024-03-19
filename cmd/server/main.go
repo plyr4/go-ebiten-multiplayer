@@ -23,23 +23,25 @@ func main() {
 		host = constants.SERVER_WS_DEFAULT_HOST
 	}
 
-	logrus.Infof("running tcp server using: %v", host)
+	logger := logrus.NewEntry(logrus.StandardLogger()).
+		WithFields(logrus.Fields{
+			"module": "ws-server",
+			"host":   host,
+		})
+
+	logger.Infof("running tcp server using: %v", host)
 
 	l, err := net.Listen("tcp", host)
 	if err != nil {
-		logrus.Fatal(err)
+		logger.Fatal(err)
 	}
 
-	logrus.Tracef("listening on: http://%v", l.Addr())
+	logger.Tracef("listening on: http://%v", l.Addr())
 
 	// create a single handle client server
 	s := &http.Server{
 		Handler: server.ClientServer{
-			Logger: logrus.NewEntry(logrus.StandardLogger()).
-				WithFields(logrus.Fields{
-					"module": "ws-server",
-					"host":   host,
-				}),
+			Logger: logger,
 		},
 		ReadTimeout:  time.Second * 10,
 		WriteTimeout: time.Second * 10,
@@ -59,9 +61,9 @@ func main() {
 	// goroutine handlers
 	select {
 	case err := <-errc:
-		logrus.Errorf("failure serving: %v", err)
+		logger.Errorf("failure serving: %v", err)
 	case sig := <-sigs:
-		logrus.Infof("terminating server, SIG: %v", sig)
+		logger.Infof("terminating server, SIG: %v", sig)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
@@ -69,6 +71,6 @@ func main() {
 
 	err = s.Shutdown(ctx)
 	if err != nil {
-		logrus.Fatal(err)
+		logger.Fatal(err)
 	}
 }

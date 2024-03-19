@@ -75,12 +75,16 @@ func (s ClientServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// receive messages from the client
 		clientUUID, err = s.handleClientMessage(r.Context(), conn, rateLimiter, clientUUID)
 		if err != nil {
-			s.Logger.Errorf("failed to handle client message: %v", err)
-
-			// todo: should be able to handle disconnection better
-			// the server shouldn't continuously grow larger when players are not connected
-			// after X amount of time we should remove the player from the map
-			// disconnected would show them as grayed out, then eventually ejected
+			switch websocket.CloseStatus(err) {
+			case websocket.StatusNormalClosure:
+				fallthrough
+			case websocket.StatusGoingAway:
+				fallthrough
+			case websocket.StatusAbnormalClosure:
+				s.Logger.Tracef("received client disconnection: %v", err)
+			default:
+				s.Logger.Errorf("failed to handle client message: %v", err)
+			}
 
 			if len(clientUUID) > 0 {
 				s.Logger.Infof("client disconnected: %v", clientUUID)
@@ -119,6 +123,10 @@ func (s ClientServer) handleClientMessage(ctx context.Context, conn *websocket.C
 	} else if msg.ClientUpdate != nil {
 		s.Logger.Tracef("received client update: %v", msg)
 
+		// todo: verify the client
+		// todo: establish this earlier in communication
+		clientUUID = msg.ClientUpdate.Player.UUID
+
 		mu.Lock()
 
 		// update this player
@@ -127,10 +135,9 @@ func (s ClientServer) handleClientMessage(ctx context.Context, conn *websocket.C
 			players[msg.ClientUpdate.Player.UUID] = &msg.ClientUpdate.Player
 		}
 
-		players[msg.ClientUpdate.Player.UUID].X = msg.ClientUpdate.Player.X
-		players[msg.ClientUpdate.Player.UUID].Y = msg.ClientUpdate.Player.Y
+		// todo: clean this mess up
+		players[msg.ClientUpdate.Player.UUID] = &msg.ClientUpdate.Player
 		players[msg.ClientUpdate.Player.UUID].Connected = true
-		clientUUID = msg.ClientUpdate.Player.UUID
 
 		mu.Unlock()
 
@@ -139,18 +146,10 @@ func (s ClientServer) handleClientMessage(ctx context.Context, conn *websocket.C
 
 		su := ws.ServerUpdate{
 			Status:  "ok",
-			Players: []ws.PlayerData{},
+			Players: map[string]*ws.PlayerData{},
 		}
 
-		mu.RLock()
-		for _, p := range players {
-			if p == nil {
-				continue
-			}
-
-			su.Players = append(su.Players, *p)
-		}
-		mu.RUnlock()
+		su.Players = players
 
 		msg.ServerUpdate = &su
 
@@ -164,33 +163,6 @@ func (s ClientServer) handleClientMessage(ctx context.Context, conn *websocket.C
 		s.Logger.Tracef("received server update: %v", msg)
 	} else {
 		s.Logger.Tracef("received unknown message type: %v", msg)
-	}
-
-	// error and closure handling
-	// not sure why this is necessary
-	// todo: handle disconnects closures and errors better
-	if websocket.CloseStatus(err) == websocket.StatusNormalClosure {
-		return clientUUID, errors.Wrap(err, "received normal closure")
-	}
-
-	if websocket.CloseStatus(err) == websocket.StatusGoingAway {
-		return clientUUID, errors.Wrap(err, "received going away")
-	}
-
-	if websocket.CloseStatus(err) == websocket.StatusAbnormalClosure {
-		return clientUUID, errors.Wrap(err, "received abnormal closure")
-	}
-
-	if websocket.CloseStatus(err) == websocket.StatusUnsupportedData {
-		return clientUUID, errors.Wrap(err, "received unsupported data")
-	}
-
-	if websocket.CloseStatus(err) == websocket.StatusPolicyViolation {
-		return clientUUID, errors.Wrap(err, "received policy violation")
-	}
-
-	if websocket.CloseStatus(err) == websocket.StatusMessageTooBig {
-		return clientUUID, errors.Wrap(err, "received message too big")
 	}
 
 	return clientUUID, err

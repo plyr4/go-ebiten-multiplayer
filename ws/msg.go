@@ -1,8 +1,5 @@
 package ws
 
-type IMsg interface {
-}
-
 type Msg struct {
 	*Ping         `json:"ping"`
 	*ServerUpdate `json:"server_update"`
@@ -13,8 +10,8 @@ type Ping struct {
 }
 
 type ServerUpdate struct {
-	Status  string       `json:"status"`
-	Players []PlayerData `json:"players"`
+	Status  string                 `json:"status"`
+	Players map[string]*PlayerData `json:"players"`
 }
 
 type ClientUpdate struct {
@@ -26,7 +23,12 @@ type ClientUpdate struct {
 type PlayerData struct {
 	UUID      string  `json:"uuid"`
 	Connected bool    `json:"connected"`
-	Hue       float64 `json:"hue"`
+	Name      string  `json:"name"`
 	X         float64 `json:"x"`
 	Y         float64 `json:"y"`
+	DX        float64 `json:"dx"`
+	DY        float64 `json:"dy"`
+	Dir       int     `json:"dir"`
+
+	ClientUpdated bool
 }

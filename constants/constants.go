@@ -11,7 +11,11 @@ const (
 	// time wait between pinging the server
 	CLIENT_WS_LATENCY = 1 * time.Millisecond
 
-	WINDOW_TITLE  = "Go Ebiten Multiplayer"
+	WINDOW_TITLE = "Go Ebiten Multiplayer"
+
 	WINDOW_WIDTH  = 1280
 	WINDOW_HEIGHT = 720
+	SCREEN_WIDTH  = WINDOW_WIDTH / WORLD_SCALE
+	SCREEN_HEIGHT = WINDOW_HEIGHT / WORLD_SCALE
+	WORLD_SCALE   = 2
 )

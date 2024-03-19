@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/plyr4/go-ebiten-multiplayer/entities"
 	"github.com/plyr4/go-ebiten-multiplayer/ws"
 )
 
@@ -17,15 +18,13 @@ import (
 func (g *Game) RunMultiplayer() error {
 	g.logger.Infof("establishing multiplayer session")
 
-	// networking
-	var err error
-	g.wsClient, err = ws.New(
-		g.logger,
-		ws.WithContext(g.ctx),
-	)
+	// create a websocket client
+	c, err := ws.New(g.logger, ws.WithContext(g.ctx))
 	if err != nil {
 		return err
 	}
+
+	g.wsClient = c
 
 	// todo: clean this up
 	err = g.wsClient.Connect()
@@ -58,15 +57,9 @@ func (g *Game) RunMultiplayer() error {
 	// <- pong (server state)
 	for {
 		msg := new(ws.Msg)
-		x, y := g.player.Position()
 		msg.ClientUpdate = &ws.ClientUpdate{
 			Status: "client-ping",
-			Player: ws.PlayerData{
-				UUID: g.uuid,
-				Hue:  g.player.Hue,
-				X:    x,
-				Y:    y,
-			},
+			Player: g.player.ToMultiplayerData(),
 		}
 
 		err := g.wsClient.Send(msg)
@@ -94,7 +87,33 @@ func (g *Game) RunMultiplayer() error {
 			g.logger.Tracef("received client update: %v", msg)
 		} else if msg.ServerUpdate != nil {
 			g.logger.Tracef("received server update: %v", msg)
-			g.Debug.ConnectedPlayers = msg.ServerUpdate.Players
+
+			g.ConnectedPlayers = msg.ServerUpdate.Players
+
+			for _, e := range g.entities {
+				np, ok := e.(*entities.NetworkPlayer)
+				if ok {
+					pd, ok := g.ConnectedPlayers[np.PlayerData.UUID]
+					if ok {
+						np.PlayerData = pd
+						pd.ClientUpdated = true
+					} else {
+						// todo: remove this entity after N seconds of disconnection
+						np.PlayerData.Connected = false
+					}
+				}
+			}
+
+			for _, pd := range g.ConnectedPlayers {
+				if !pd.ClientUpdated && pd.UUID != g.UUID {
+					np, err := entities.NewNetworkPlayer(g.Game, pd)
+					if err != nil {
+						g.logger.Errorf("error creating network player: %v", err)
+					} else {
+						g.entities = append(g.entities, np)
+					}
+				}
+			}
 		} else {
 			g.logger.Tracef("received unknown message type: %v", msg)
 		}
@@ -129,7 +148,7 @@ func (g *Game) RunMultiplayer() error {
 		}
 
 		if sendErrs == 0 && recvErrs == 0 {
-			g.Debug.Roundtrips++
+			g.Roundtrips++
 		}
 	}
 }
