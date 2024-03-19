@@ -45,3 +45,14 @@ For local dev: [Go](https://go.dev/), [ebitengine](https://ebitengine.org/) (mak
 ## Troubleshooting
 
 - Ports stuck after running and killing the server? Run `make kill-srv` then try again.
+
+## TODOs
+
+- [ ] strong client uuids
+- [ ] websocket security
+- [ ] sprite animations
+- [ ] dynamic animations
+- [ ] server self-cleanup
+- [ ] multiplayer lobbies
+- [ ] ui
+- [ ] player customization

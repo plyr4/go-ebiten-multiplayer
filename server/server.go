@@ -17,6 +17,7 @@ import (
 )
 
 // server state
+// todo: maintain an efficient sorted list of this data for responding faster to the client
 var players = map[string]*ws.PlayerData{}
 var mu sync.RWMutex
 

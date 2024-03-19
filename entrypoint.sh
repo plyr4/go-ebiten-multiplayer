@@ -5,10 +5,9 @@ set -x
 export WASM_HTTP_PORT=${WASM_HTTP_PORT:-8090}
 
 # server (defaults set in script due to wasm wrapper limitations)
-export WS_SERVER_HOST="${WS_SERVER_HOST:-0.0.0.0:8091}"
+export SERVER_WS_HOST="${SERVER_WS_HOST:-0.0.0.0:8091}"
 
 # client (defaults set in code)
-export CLIENT_WS_PROTOCOL=${CLIENT_WS_PROTOCOL:-ws}
 export CLIENT_WS_PROTOCOL=${CLIENT_WS_PROTOCOL:-ws}
 export CLIENT_WS_HOST="${CLIENT_WS_HOST}"
 export CLIENT_WS_PATH="${CLIENT_WS_PATH}"
