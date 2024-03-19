@@ -48,7 +48,7 @@ For local dev: [Go](https://go.dev/), [ebitengine](https://ebitengine.org/) (mak
 
 ## TODOs
 
-- [ ] strong client uuids
+- [ ] secure client uuids
 - [ ] websocket security
 - [ ] sprite animations
 - [ ] dynamic animations
