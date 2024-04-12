@@ -19,7 +19,7 @@ import (
 // server state
 // todo: maintain an efficient sorted list of this data for responding faster to the client
 var players = map[string]*ws.PlayerData{}
-var mu sync.RWMutex
+var mu sync.Mutex
 
 // todo: refactor most of this into ws package
 // this package should be the actual server logic and how we manage players
@@ -157,11 +157,12 @@ func (s ClientServer) handleClientMessage(ctx context.Context, conn *websocket.C
 		msg.ServerUpdate = &su
 
 		s.Logger.Tracef("responding with server update: %v", su)
-
+		mu.Lock()
 		err = wsjson.Write(ctx, conn, msg)
 		if err != nil {
 			return clientUUID, errors.Wrap(err, "failed to write server update")
 		}
+		mu.Unlock()
 	} else if msg.ServerUpdate != nil {
 		s.Logger.Tracef("received server update: %v", msg)
 	} else {
