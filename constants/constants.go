@@ -1,6 +1,8 @@
 package constants
 
-import "time"
+import (
+	"time"
+)
 
 const (
 	SERVER_WS_DEFAULT_HOST = "localhost:8091"

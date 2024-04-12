@@ -57,4 +57,5 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	g.DrawImageOptions.GeoM.Scale(constants.WORLD_SCALE, constants.WORLD_SCALE)
 	screen.DrawImage(renderTarget, g.DrawImageOptions)
 	g.DrawImageOptions.GeoM.Reset()
+
 }

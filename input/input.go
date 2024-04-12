@@ -1,6 +1,8 @@
 package input
 
 import (
+	"errors"
+
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 )
@@ -20,7 +22,7 @@ func (i *Input) Reset() {
 	i.Down = false
 }
 
-func (i *Input) Update() {
+func (i *Input) Update() error {
 	// todo: fix: this doesnt reset when the game window loses focus
 	i.Reset()
 
@@ -38,4 +40,10 @@ func (i *Input) Update() {
 	if ebiten.IsKeyPressed(ebiten.KeyUp) || ebiten.IsKeyPressed(ebiten.KeyW) {
 		i.Up = true
 	}
+
+	if ebiten.IsKeyPressed(ebiten.KeyEscape) {
+		return errors.New("escape key pressed, exiting game")
+	}
+
+	return nil
 }

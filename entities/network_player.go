@@ -20,12 +20,12 @@ type NetworkPlayer struct {
 }
 
 func NewNetworkPlayer(g *internal.Game, pd *ws.PlayerData) (*NetworkPlayer, error) {
-	p := new(NetworkPlayer)
+	e := new(NetworkPlayer)
 
-	p.Game = g
+	e.Game = g
 
 	// this entity renders using network data
-	p.PlayerData = pd
+	e.PlayerData = pd
 
 	// sprite
 	img, _, err := image.Decode(bytes.NewReader(images.Runner))
@@ -33,17 +33,17 @@ func NewNetworkPlayer(g *internal.Game, pd *ws.PlayerData) (*NetworkPlayer, erro
 		return nil, err
 	}
 
-	p.Image = ebiten.NewImageFromImage(img)
+	e.Image = ebiten.NewImageFromImage(img)
 
-	return p, nil
+	return e, nil
 }
 
-func (p *NetworkPlayer) Draw(renderTarget *ebiten.Image) error {
+func (e *NetworkPlayer) Draw(renderTarget *ebiten.Image) error {
 	frame := 0
 
 	// player is moving
-	if p.DX != 0 || p.DY != 0 {
-		frame = p.Game.Frame
+	if e.DX != 0 || e.DY != 0 {
+		frame = e.Game.Frame
 	}
 
 	// store this in the entity
@@ -65,28 +65,28 @@ func (p *NetworkPlayer) Draw(renderTarget *ebiten.Image) error {
 	)
 
 	// flip the sprite facing left
-	if p.Dir == LEFT {
+	if e.Dir == LEFT {
 		opts.GeoM.Scale(-1, 1)
 	}
 
 	// move the sprite to the player's position
-	opts.GeoM.Translate(p.PlayerData.X, p.PlayerData.Y)
+	opts.GeoM.Translate(e.PlayerData.X, e.PlayerData.Y)
 
 	// apply the player hue
 	cm := colorm.ColorM{}
 	cm.Reset()
-	if !p.PlayerData.Connected {
+	if !e.PlayerData.Connected {
 		cm.Scale(0.5, 0.5, 0.5, 0.8)
 	}
 
 	// draw the sprite
 	colorm.DrawImage(renderTarget,
-		sprite.Sprite(p.Image, frameOpts),
+		sprite.Sprite(e.Image, frameOpts),
 		cm, opts)
 
 	return nil
 }
 
-func (p *NetworkPlayer) Update() error {
+func (e *NetworkPlayer) Update() error {
 	return nil
 }

@@ -13,4 +13,5 @@ type IEntity interface {
 type Entity struct {
 	X, Y float64
 	*internal.Game
+	// todo: children entities
 }

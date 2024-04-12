@@ -6,10 +6,16 @@ func (g *Game) Update() error {
 	}
 	g.Frame++
 
-	g.Input.Update()
+	g.error = g.Input.Update()
+	if g.error != nil {
+		return g.error
+	}
 
 	for _, e := range g.entities {
-		e.Update()
+		g.error = e.Update()
+		if g.error != nil {
+			return g.error
+		}
 	}
 
 	return g.error

@@ -16,13 +16,22 @@ func (g *Game) Run() error {
 	ebiten.SetWindowSize(constants.WINDOW_WIDTH, constants.WINDOW_HEIGHT)
 	ebiten.SetWindowTitle(constants.WINDOW_TITLE)
 
+	// boat
+	b, err := entities.NewBoat(g.Game)
+	if err != nil {
+		return errors.Wrap(err, "unable to create boat")
+	}
+	g.entities = append(g.entities, b)
+
 	// player
 	p, err := entities.NewPlayer(g.Game)
 	if err != nil {
 		return errors.Wrap(err, "unable to create player")
 	}
 
-	g.player = p
+	g.Player = p
+	b.Player = p
+
 	g.entities = append(g.entities, p)
 
 	// multiplayer

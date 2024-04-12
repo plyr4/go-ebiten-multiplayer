@@ -59,7 +59,7 @@ func (g *Game) RunMultiplayer() error {
 		msg := new(ws.Msg)
 		msg.ClientUpdate = &ws.ClientUpdate{
 			Status: "client-ping",
-			Player: g.player.ToMultiplayerData(),
+			Player: g.Player.ToMultiplayerData(),
 		}
 
 		err := g.wsClient.Send(msg)

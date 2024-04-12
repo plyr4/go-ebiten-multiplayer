@@ -20,8 +20,8 @@ type Game struct {
 	ctx         context.Context
 	error
 
-	player   *entities.Player
 	entities []entities.IEntity
+	*entities.Player
 
 	*internal.Game
 	*ebiten.DrawImageOptions
