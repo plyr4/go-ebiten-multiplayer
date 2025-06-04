@@ -1,6 +1,6 @@
 # go-ebiten-multiplayer
 
-A small game multiplayer made with [Go](https://go.dev/), [ebitengine](https://ebitengine.org/) and websockets.
+A small multiplayer game prototype made with [Go](https://go.dev/), [ebitengine](https://ebitengine.org/) and websockets.
 
 ## Play
 
