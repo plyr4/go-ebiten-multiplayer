@@ -46,13 +46,16 @@ For local dev: [Go](https://go.dev/), [ebitengine](https://ebitengine.org/) (mak
 
 - Ports stuck after running and killing the server? Run `make kill-srv` then try again.
 
-## TODOs
+## Roadmap
 
-- [ ] secure client uuids
-- [ ] websocket security
-- [ ] sprite animations
-- [ ] dynamic animations
-- [ ] server self-cleanup
-- [ ] multiplayer lobbies
-- [ ] ui
-- [ ] player customization
+The project roadmap has been converted to GitHub issues for better tracking and collaboration. See the [Issues page](https://github.com/plyr4/go-ebiten-multiplayer/issues) for current development tasks.
+
+### Key Features in Development
+
+- **Security** - Client UUID and WebSocket security improvements
+- **Graphics & Animation** - Sprite animations and dynamic animation system  
+- **Server** - Self-cleanup and maintenance features
+- **Multiplayer** - Lobby system for organized game sessions
+- **UI/UX** - User interface and player customization features
+
+For detailed information about converting TODOs to issues, see [TODO_TO_ISSUES.md](./TODO_TO_ISSUES.md).
